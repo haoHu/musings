@@ -9,6 +9,12 @@ BPM_GRAPH_BIN=bpm-graph
 
 DIR=$1
 
+if [ "$#" -ne 1 ]; then
+  echo "Requires a source directory to run on"
+  exit 1
+fi
+
+
 OUT_DIR="${DIR}/musincs"
 mkdir -p ${OUT_DIR}
 

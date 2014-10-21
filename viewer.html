@@ -1,0 +1,138 @@
+<html>
+  <head>
+  </head>
+
+  <body>
+    <script src="http://ajax.googleapis.com/ajax/libs/jquery/2.1.1/jquery.min.js"></script>
+    <script src="http://ajax.googleapis.com/ajax/libs/jqueryui/1.11.2/jquery-ui.min.js"></script>
+    
+    <div id='song_container'></div>
+
+    <style>
+      #song_container {
+        width: 80%;
+        margin: auto;
+        margin-top: 50px;
+      }
+    </style>
+
+    <script>
+      // inject a script into the page that loads the song elements?
+
+      function load_data(song_data) {
+        
+        var mapped_chords = [
+          "A",
+          "Ab",
+          "B",
+          "Bb",
+          "C",
+          "Db",
+          "E",
+          "Eb",
+          "F",
+          "G",
+          "Gb"  
+        ];
+
+        var chord_to_colors = {
+          "N" : "#000" 
+        };
+        $.each(mapped_chords, function() {
+          var color_idx = Math.floor(Math.random() * SVG_COLORS.length);
+          var color = SVG_COLORS[color_idx];
+          chord_to_colors[this] = color;
+        });
+        
+
+        $.each(song_data, function() {
+          var song = this;
+          var div = $("<div />");
+          var prev_data = [0, 0];
+          var last_data = song.chords[song.chords.length - 1];
+          var length = last_data[0];
+
+          div.css({
+            "width": "500px",
+            "height": "50px"
+          });
+
+          div.addClass("song");
+          var title = $("<div />");
+          title.append(song.name);
+          var bpm = $("<span />").text(song.bpm);
+          bpm.css("float", "right");
+          title.append(bpm);
+
+          div.append(title);
+
+          $.each(song.chords, function() {
+            var chord = this[1];
+
+            function flavor_chord(chord, color) {
+              var ptr = 0
+              var chord_root = chord[ptr++];
+              if (chord[ptr] == 'b') {
+                chord_root += chord[ptr++];
+              }
+              var color = chord_to_colors[chord_root];
+              color = tinycolor(color);
+              if (chord[ptr] == "m") {
+                ptr++;
+                if (chord_root[ptr] == "a") {
+                  // its a major 
+                  color.brighten();
+                } else {
+                  color.darken();
+                }
+
+                if (chord.indexOf("7") != -1) {
+                  color.saturate(30);
+                }
+                if (chord.indexOf("6") != -1) {
+                  color.desaturate();
+                }
+              }
+
+              return color.toHex();
+            }
+
+
+            var color = flavor_chord(chord);
+            var position = this[0];
+            var width = position - prev_data[0];
+            
+            var span = $("<span />");
+            var percent_width = width / length * 100 + "%";
+            span.css({
+              width: percent_width,
+              height: "100%",
+              display: "inline-block",
+              backgroundColor: color
+            });
+
+            prev_data = this;
+
+            span.attr("title", chord);
+
+            div.append(span);
+          });
+
+          div.css("width", length * 4 + "px");
+          div.css("margin-bottom", "50px");
+
+          $("#song_container").append(div);
+          $("#song_container").sortable();
+        });
+
+
+      }
+
+    </script>
+
+    <script src="tinycolor.js"></script>
+    <script src="colors.js"></script>
+    <script src="data.js"></script>
+  </body>
+
+</html>
