@@ -36,13 +36,18 @@
         ];
 
         var chord_to_colors = {
-          "N" : "#000" 
+          "N" : "#000"
         };
         $.each(mapped_chords, function() {
           var color_idx = Math.floor(Math.random() * SVG_COLORS.length);
           var color = SVG_COLORS[color_idx];
-          chord_to_colors[this] = color;
+
+          if (!chord_to_colors[this]) {
+            chord_to_colors[this] = color;
+          }
         });
+
+        console.log("COLORS ARE", chord_to_colors);
         
 
         $.each(song_data, function() {
@@ -54,15 +59,32 @@
 
           div.css({
             "width": "500px",
-            "height": "50px"
+            "height": "50px",
+            "position" : "relative"
           });
 
           div.addClass("song");
           var title = $("<div />");
           title.append(song.name);
-          var bpm = $("<span />").text(song.bpm);
-          bpm.css("float", "right");
-          title.append(bpm);
+          var song_bpm = song.bpm;
+          if (song_bpm > 150) {
+            song_bpm /= 2;
+          }
+
+          if (song_bpm < 65) {
+            song_bpm *= 2;
+          }
+
+          var bpm = $("<span />").text(parseInt(song_bpm));
+          bpm.css("position", "absolute");
+          bpm.css("left", "-60px");
+          bpm.css("top", "0");
+          bpm.css("opacity", "0.5");
+          bpm.css("background-color", "white");
+
+          var zoom_amount = (song_bpm - 50) / 100;
+          bpm.css("zoom", 1 + zoom_amount);
+          div.append(bpm);
 
           div.append(title);
 
