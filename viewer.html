@@ -6,13 +6,85 @@
     <script src="http://ajax.googleapis.com/ajax/libs/jquery/2.1.1/jquery.min.js"></script>
     <script src="http://ajax.googleapis.com/ajax/libs/jqueryui/1.11.2/jquery-ui.min.js"></script>
     
-    <div id='song_container'></div>
+    <div id='song_container'>
+      <div class='song_list p1'> 
+      </div> 
+      <div class='song_list p2'> 
+      </div> 
+      <div class='song_list p3'> 
+      </div> 
+    </div>
+
+    <div class='controls'>
+
+    </div>
+    <div id='song_slider'> 
+
+    </div>
 
     <style>
+
+      audio {
+        position: fixed !important;
+        bottom: 20px !important;
+        width: 80% !important;
+        left: 0px;
+        right: 0px;
+        margin: auto;
+        zoom: 2;
+        opacity: 0.6;
+        z-index: 1;
+      }
+
+      .song .slider {
+        display: none;
+        position: absolute;
+        right: 110%;
+      }
+
+      .song_visual {
+        position: relative;
+      }
+
+      .song.song_visual .slider {
+        display: block;
+        width: 5px;
+        height: 40px;
+        top: -10px;
+        background-color: #000;
+        opacity: 0.5;
+      }
+
+
+
       #song_container {
-        width: 80%;
+        width: 100%;
         margin: auto;
         margin-top: 50px;
+      }
+
+      #song_container .title,
+      #song_container .bpm {
+        opacity: 0.5;
+        margin-top: -1em;
+      }
+
+      .song_list {
+        width: 30%;
+        padding-top: 50px;
+        margin-left: 3%;
+        overflow-y: hidden;
+        overflow-x: hidden;
+        float: left;
+      }
+
+      #song_container .song {
+        cursor: move;
+        height: 20px;
+        margin-bottom: 50px;
+        width: 100%;
+        max-width: 500px;
+        position: relative;
       }
     </style>
 
@@ -50,6 +122,37 @@
         console.log("COLORS ARE", chord_to_colors);
         
 
+        var song_lookup = {};
+        song_data.forEach(function(song) {
+          song_lookup[song.name] = song;
+        });
+
+        if (window.localStorage) {
+          var order = window.localStorage.getItem("songorder");
+
+          if (order) {
+            try {
+              order = JSON.parse(order);
+              var song_order = [];
+              [ "p1", "p2", "p3" ].forEach(function(p) {
+                order[p].forEach(function(s) {
+                  song_lookup[s + ".mp3"].column = p;
+                });
+
+                song_order = song_order.concat(order[p]);
+              });
+            } catch (e) {
+              console.log(e);
+            }
+    
+            song_data = [];
+            song_order.forEach(function(o) {
+              song_data.push(song_lookup[o + ".mp3"]);
+            });
+
+          }
+        }
+
         $.each(song_data, function() {
           var song = this;
           var div = $("<div />");
@@ -58,14 +161,20 @@
           var length = last_data[0];
 
           div.css({
-            "width": "500px",
-            "height": "50px",
-            "position" : "relative"
           });
 
           div.addClass("song");
           var title = $("<div />");
-          title.append(song.name);
+          title.addClass("title");
+
+          div.append($("<div class='slider'> </div>"));
+
+          var song_name = song.name.replace(".mp3", "");
+          title.append(song_name);
+          title.css("top", "0em");
+          title.css("height", "100%");
+          title.css("position", "absolute");
+
           var song_bpm = song.bpm;
           if (song_bpm > 150) {
             song_bpm /= 2;
@@ -75,15 +184,27 @@
             song_bpm *= 2;
           }
 
-          var bpm = $("<span />").text(parseInt(song_bpm));
+          var bpm = $("<span />").text(parseInt(song_bpm) + " bpm");
+          bpm.addClass("bpm");
+
+          var time_str = parseInt(length / 60) + ":"
+          bpm.append();
+          var seconds = parseInt(length % 60);
+          if (seconds < 10) {
+            time_str += ("0" + seconds);
+          }  else {
+            time_str += seconds;
+          }
+
+          bpm.prepend(time_str + " - ");
+
           bpm.css("position", "absolute");
-          bpm.css("left", "-60px");
-          bpm.css("top", "0");
-          bpm.css("opacity", "0.5");
+          bpm.css("right", "0");
+          bpm.css("width", "100px");
+          bpm.css("height", "100%");
+          bpm.css("text-align", "center");
           bpm.css("background-color", "white");
 
-          var zoom_amount = (song_bpm - 50) / 100;
-          bpm.css("zoom", 1 + zoom_amount);
           div.append(bpm);
 
           div.append(title);
@@ -140,20 +261,128 @@
             div.append(span);
           });
 
-          div.css("width", length * 4 + "px");
-          div.css("margin-bottom", "50px");
+          div.append(
+            $("<div class='source' />")
+              .attr("src", song.name)
+          );
 
-          $("#song_container").append(div);
-          $("#song_container").sortable();
+
+
+          if (song.column) {
+            var parent = $("." + song.column + ".song_list");
+            parent.append(div);
+          } else {
+            // try to look up the song idx in our serialized list
+            var song_lists = $(".song_list");
+            var idx = Math.floor(Math.random() * song_lists.length);
+            song_lists[idx].appendChild(div[0]);
+          }
         });
+
+        $(".song").on("click", function() {
+          console.log("PLAYING SONG?", this);
+          var srcEl = $(this).closest(".song").find(".source");
+          var src_url = "http://grossmodern.com/mp3/" + srcEl.attr("src");
+          var src = $("<source />").attr("src", src_url);
+
+
+          var audioEl = addAudioEl();
+
+          console.log("AUDIO EL IS", audioEl);
+
+          $(".song_visual").removeClass("song_visual");
+          var song_visual = $(this).addClass("song_visual");
+
+          audioEl[0].pause();
+          audioEl.children().remove();
+
+          console.log("SONG IS", src_url);
+
+          setTimeout(function() {
+            audioEl.append(src);
+            audioEl[0].play();
+          });
+        });
+
+      }
+
+      $(".song_list").sortable({
+        "connectWith" : ".song_list",
+        "update" : function() { 
+
+          var order = {};
+          [ "p1", "p2", "p3" ].forEach(function(t) {
+            var songs = $("." + t + " .song .title");
+            var names = $.map(songs, function(s) {
+              return $(s).text();
+            });
+
+            order[t] = names;
+          });
+
+          if (window.localStorage){ 
+            localStorage.setItem("songorder", JSON.stringify(order));
+          }
+
+        }
+      });
+
+      function addAudioEl() {
+        var audioEl = $("audio");
+        if (audioEl.length) {
+          audioEl[0].pause();
+          audioEl.remove();
+        }
+
+        console.log("MAKING NEW AUDIO EL");
+
+        audioEl = $("<audio id='music' controls />");
+        audioEl.on("pause ended error stalled", function() { });
+
+        audioEl.on("timeupdate", function() {
+          // update the range slider
+          var currentTime = audioEl[0].currentTime;
+          var duration = audioEl[0].duration;
+          var percent = parseInt(currentTime / duration * 10000) / 100.0;
+
+          var song_visual = $(".song_visual");
+
+          var slider = song_visual.find(".slider").css("right", (100 - percent) + "%");
+          console.log("SLIDER", slider);
+
+          
+        });
+
+        audioEl.on("ended", function() {
+          var song_visual = $(".song_visual");
+          var song_name = song_visual.find(".title").text();
+
+          song_visual.removeClass("song_visual");
+          var song_el = $(".song").filter(function() {
+            return $(this).find(".title").text() == song_name;
+          });
+
+          var next_el = song_el.next();
+
+          next_el.click();
+        });
+
+        audioEl.on("play", function() {
+        });
+
+        $("body").append(audioEl);
+
+        return audioEl;
+
+
 
 
       }
 
     </script>
 
-    <script src="tinycolor.js"></script>
-    <script src="colors.js"></script>
+    <script src="inc/tinycolor.js"></script>
+    <script src="inc/colors.js"></script>
     <script src="data.js"></script>
   </body>
 
