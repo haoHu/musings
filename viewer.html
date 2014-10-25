@@ -5,7 +5,13 @@
   <body>
     <script src="http://ajax.googleapis.com/ajax/libs/jquery/2.1.1/jquery.min.js"></script>
     <script src="http://ajax.googleapis.com/ajax/libs/jqueryui/1.11.2/jquery-ui.min.js"></script>
-    
+
+    <div id='controls'> 
+      <div class='albumify'>albumify</div>
+      <div class='colors'>colors</div>
+    </div>
+
+
     <div id='song_container'>
       <div class='song_list p1'> 
       </div> 
@@ -23,6 +29,34 @@
     </div>
 
     <style>
+
+      html, body {
+        overflow: hidden;
+      }
+
+      #controls {
+        position: fixed;
+        right: 5px;
+        top: 5px;
+        z-index: 3;
+      }
+
+      #controls .albumify,
+      #controls .colors {
+        background-color: #ddd;
+        display: block;
+        float: left;
+        padding: 10px;
+        margin-left: 10px;
+        cursor: pointer;
+      }
+
+      #controls .albumify:hover,
+      #controls .colors:hover {
+        background-color: #ccc;
+      }
+
+
 
       audio {
         position: fixed !important;
@@ -60,7 +94,7 @@
       #song_container {
         width: 100%;
         margin: auto;
-        margin-top: 50px;
+        margin-top: 0px;
       }
 
       #song_container .title,
@@ -78,6 +112,10 @@
         float: left;
       }
 
+      .song_list.p3 {
+        opacity: 0.3;
+      }
+
       #song_container .song {
         cursor: move;
         height: 20px;
@@ -86,13 +124,41 @@
         max-width: 500px;
         position: relative;
       }
+
+      #song_container.albumify .song {
+        max-width: inherit;
+        height: 50px;
+        margin-top: 0px;
+        margin-bottom: 0px;
+      }
+
+      #song_container.albumify.small .song {
+        height: 20px;
+      }
+
+      #song_container.albumify.big {
+        zoom: 1.5;
+      }
+
+
+      #song_container.albumify .song_list {
+        width: 100%;
+        margin-left: 0;
+        margin-top: 0;
+        padding-top: 0;
+      }
+
+      #song_container.albumify .title,
+      #song_container.albumify .bpm {
+        display: none;
+      }
     </style>
 
     <script>
       // inject a script into the page that loads the song elements?
+      var SONG_DIR;
 
-      function load_data(song_data) {
-        
+      function load_colors(load_from_local) {
         var mapped_chords = [
           "A",
           "Ab",
@@ -110,6 +176,7 @@
         var chord_to_colors = {
           "N" : "#000"
         };
+
         $.each(mapped_chords, function() {
           var color_idx = Math.floor(Math.random() * SVG_COLORS.length);
           var color = SVG_COLORS[color_idx];
@@ -119,16 +186,28 @@
           }
         });
 
-        console.log("COLORS ARE", chord_to_colors);
-        
+       
+        if (window.localStorage && load_from_local) {
+          var saved_colors = window.localStorage.getItem(SONG_DIR + ":colors");
 
-        var song_lookup = {};
-        song_data.forEach(function(song) {
-          song_lookup[song.name] = song;
-        });
+          if (saved_colors) {
+            try {
+              chord_to_colors = JSON.parse(saved_colors);
+            } catch(e) { };
+          }
+        }
 
+        window.localStorage.setItem(SONG_DIR + ":colors", JSON.stringify(chord_to_colors));
+
+        return chord_to_colors;
+
+
+      }
+
+      function load_song_order(song_data, song_lookup) {
+        var order = '{"p1":["19_lifebefore","02_anotherhit_v","10_std","05_justwondering","14_undertheradar","01_unstickme","18_thememo","09_iinsist"],"p2":["03_tributhree","16_icwi","17_blom","06_sepba","08_weknewagirl","07_nom","15_summerwear","13_spacenutrients"],"p3":["12_nowthen","12_nowthen_voco","04_strangerdanger_a","11_blbb"]}'
         if (window.localStorage) {
-          var order = window.localStorage.getItem("songorder");
+          order = window.localStorage.getItem(SONG_DIR + ":songorder") || order;
 
           if (order) {
             try {
@@ -136,22 +215,119 @@
               var song_order = [];
               [ "p1", "p2", "p3" ].forEach(function(p) {
                 order[p].forEach(function(s) {
-                  song_lookup[s + ".mp3"].column = p;
+                  var song_data = song_lookup[s] || song_lookup[s + ".mp3"];
+                  if (song_data) {
+                    song_data.column = p;
+                  }
                 });
 
                 song_order = song_order.concat(order[p]);
               });
+
+              var added = {};
+              song_data.forEach(function(o) {
+                added[o.name] = false;
+              });
+
+              song_data = [];
+              song_order.forEach(function(o) {
+                var song_info = song_lookup[o + ".mp3"];
+                if (song_info) {
+                  song_data.push(song_info);
+                  added[o + ".mp3"] = true;
+                }
+              });
+
+              console.log("ADDED", added);
+
+              Object.keys(added).forEach(function(s) {
+                if (!added[s]) {
+                  song_data.push(song_lookup[s]);
+                }
+              });
+
             } catch (e) {
               console.log(e);
             }
     
-            song_data = [];
-            song_order.forEach(function(o) {
-              song_data.push(song_lookup[o + ".mp3"]);
-            });
-
           }
         }
+
+        return song_data;
+
+      }
+
+      function add_colors_to_css(chord_to_colors) {
+        var all_chords = ALL_CHORDS;
+
+        function flavor_chord(chord) {
+          var ptr = 0
+          var chord_root = chord[ptr++];
+          if (chord[ptr] == 'b') {
+            chord_root += chord[ptr++];
+          }
+
+          var color = chord_to_colors[chord_root];
+          color = tinycolor(color);
+          if (chord[ptr] == "m") {
+            ptr++;
+            if (chord_root[ptr] == "a") {
+              // its a major 
+              color.brighten();
+            } else {
+              color.darken();
+            }
+
+            if (chord.indexOf("7") != -1) {
+              color.saturate(30);
+            }
+            if (chord.indexOf("6") != -1) {
+              color.desaturate();
+            }
+          }
+
+          return color.toHex();
+        }
+
+        var styleRules = "";
+
+        Object.keys(all_chords).forEach(function(chord) {
+          var color = flavor_chord(chord);
+
+          var style_rule = "." + chord + " {\nbackground-color: #" + color + "}\n";
+
+          styleRules += style_rule;
+
+        });
+
+        var styleEl = $("<style />");
+        styleEl.addClass("chord_colors");
+        styleEl.text(styleRules);
+
+        $(".chord_colors").remove();
+
+        $("body").append(styleEl);
+
+
+
+      }
+
+      function load_chords(song_data) {
+        var all_chords = {};
+
+        song_data.forEach(function(song) {
+          $.each(song.chords, function() {
+            var chord = this[1].replace(/#/g, "s").replace(/\//g, "_");
+
+            all_chords[chord] = true;
+
+          });
+        });
+
+        return all_chords;
+      }
+
+      function display_songs(song_data, song_lookup) {
 
         $.each(song_data, function() {
           var song = this;
@@ -210,48 +386,19 @@
           div.append(title);
 
           $.each(song.chords, function() {
-            var chord = this[1];
-
-            function flavor_chord(chord, color) {
-              var ptr = 0
-              var chord_root = chord[ptr++];
-              if (chord[ptr] == 'b') {
-                chord_root += chord[ptr++];
-              }
-              var color = chord_to_colors[chord_root];
-              color = tinycolor(color);
-              if (chord[ptr] == "m") {
-                ptr++;
-                if (chord_root[ptr] == "a") {
-                  // its a major 
-                  color.brighten();
-                } else {
-                  color.darken();
-                }
-
-                if (chord.indexOf("7") != -1) {
-                  color.saturate(30);
-                }
-                if (chord.indexOf("6") != -1) {
-                  color.desaturate();
-                }
-              }
-
-              return color.toHex();
-            }
+            var chord = this[1].replace(/#/g, "s").replace(/\//g, "_");
 
 
-            var color = flavor_chord(chord);
             var position = this[0];
             var width = position - prev_data[0];
             
             var span = $("<span />");
             var percent_width = width / length * 100 + "%";
+            span.addClass(chord);
             span.css({
               width: percent_width,
               height: "100%",
-              display: "inline-block",
-              backgroundColor: color
+              display: "inline-block"
             });
 
             prev_data = this;
@@ -279,16 +426,17 @@
           }
         });
 
+
+      }
+
+      function add_handlers() {
         $(".song").on("click", function() {
-          console.log("PLAYING SONG?", this);
           var srcEl = $(this).closest(".song").find(".source");
           var src_url = "http://grossmodern.com/mp3/" + srcEl.attr("src");
           var src = $("<source />").attr("src", src_url);
 
 
           var audioEl = addAudioEl();
-
-          console.log("AUDIO EL IS", audioEl);
 
           $(".song_visual").removeClass("song_visual");
           var song_visual = $(this).addClass("song_visual");
@@ -303,6 +451,48 @@
             audioEl[0].play();
           });
         });
+
+        var classCounter = 0;
+        $(".albumify").on("click", function() {
+          var classes = [ "", "small"];
+          classes.forEach(function(cl) {
+            $("#song_container").removeClass(cl);
+          });
+
+          var next_class = "small";
+          var next_class = classes[classCounter / 2 % classes.length];
+          classCounter += 1;
+
+          $("#song_container").toggleClass("albumify");
+          $("#song_container").addClass(next_class);
+        });
+        $(".colors").on("click", function() {
+          add_colors_to_css(load_colors());
+        });
+
+      }
+
+      function load_data(song_data, song_dir) {
+        SONG_DIR = song_dir || "";
+        var song_lookup = {};
+        song_data.forEach(function(song) {
+          song_lookup[song.name] = song;
+        });
+
+        song_data = load_song_order(song_data, song_lookup);
+
+
+
+        display_songs(song_data, song_lookup);
+
+        var all_chords = load_chords(song_data);
+        window.ALL_CHORDS = all_chords;
+
+        var chord_to_colors = load_colors(true /* load from localStorage */);
+        add_colors_to_css(chord_to_colors);
+
+
+        add_handlers();
 
       }
 
@@ -321,7 +511,7 @@
           });
 
           if (window.localStorage){ 
-            localStorage.setItem("songorder", JSON.stringify(order));
+            localStorage.setItem(SONG_DIR + ":songorder", JSON.stringify(order));
           }
 
         }
@@ -333,8 +523,6 @@
           audioEl[0].pause();
           audioEl.remove();
         }
-
-        console.log("MAKING NEW AUDIO EL");
 
         audioEl = $("<audio id='music' controls />");
         audioEl.on("pause ended error stalled", function() { });
@@ -348,7 +536,6 @@
           var song_visual = $(".song_visual");
 
           var slider = song_visual.find(".slider").css("right", (100 - percent) + "%");
-          console.log("SLIDER", slider);
 
           
         });
