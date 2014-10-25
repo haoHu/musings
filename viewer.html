@@ -263,8 +263,19 @@
         function flavor_chord(chord) {
           var ptr = 0
           var chord_root = chord[ptr++];
-          if (chord[ptr] == 'b') {
+          var sharp_mapping = {
+            Cs: "Db",
+            Ds: "Eb",
+            Es: "F",
+            Fs: "Gb",
+            Gs: "Ab",
+            As: "Bb",
+            Bs: "C"
+          };
+
+          if (chord[ptr] == 'b' || chord[ptr] == 's') {
             chord_root += chord[ptr++];
+            chord_root = sharp_mapping[chord_root] || chord_root;
           }
 
           var color = chord_to_colors[chord_root];
