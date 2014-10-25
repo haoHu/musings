@@ -1,6 +1,7 @@
 # Requirements
 
-* sonic annotator
+* sonic annotator (http://www.vamp-plugins.org/sonic-annotator/)
+* nnls-chroma (http://isophonics.net/nnls-chroma)
 * bpm utils (bpm-graph, specifically)
 
 # Usage
